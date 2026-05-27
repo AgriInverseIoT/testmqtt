@@ -1,0 +1,20 @@
+{
+  "name": "mqtt-express-test",
+  "version": "1.0.0",
+  "description": "MQTT IoT test setup on Netlify",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Static site with Netlify Functions - no build step required'"
+  },
+  "dependencies": {
+    "@netlify/database": "latest",
+    "drizzle-orm": "beta",
+    "mqtt": "^5.3.0"
+  },
+  "devDependencies": {
+    "@netlify/functions": "latest",
+    "@types/node": "^20.10.0",
+    "drizzle-kit": "beta",
+    "typescript": "^5.3.0"
+  }
+}
