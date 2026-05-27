@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS IoT MQTT Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #e4e4e7;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      background: linear-gradient(90deg, #ff9900, #ff6600);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 2.5rem;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .card h2 {
+      color: #ff9900;
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+    }
+
+    .status-card {
+      border-left: 4px solid #ff9900;
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .status-item:last-child {
+      border-bottom: none;
+    }
+
+    .status-label {
+      color: #a1a1aa;
+    }
+
+    .status-value {
+      font-weight: 600;
+    }
+
+    .status-connected {
+      color: #22c55e;
+    }
+
+    .status-disconnected {
+      color: #ef4444;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #ff9900;
+      box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.2);
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #ff9900, #ff6600);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(255, 153, 0, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e4e4e7;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .messages-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .messages-header button {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+
+    #messages {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .message {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      border-left: 3px solid #ff9900;
+    }
+
+    .message.sent {
+      border-left-color: #3b82f6;
+    }
+
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.25rem;
+    }
+
+    .message-direction {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .message.sent .message-direction {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+    }
+
+    .message.received .message-direction {
+      background: rgba(255, 153, 0, 0.2);
+      color: #ffb84d;
+    }
+
+    .message-text {
+      color: #fff;
+      word-break: break-word;
+    }
+
+    .message-time {
+      font-size: 0.75rem;
+      color: #71717a;
+      margin-top: 0.25rem;
+    }
+
+    .empty {
+      color: #71717a;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .alert {
+      text-align: center;
+      padding: 0.75rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    .alert.success {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+
+    .alert.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .alert.warning {
+      background: rgba(234, 179, 8, 0.2);
+      color: #eab308;
+    }
+
+    .topic-badge {
+      background: rgba(255, 153, 0, 0.2);
+      color: #ffb84d;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.875rem;
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>&#x2601;&#xFE0F; AWS IoT MQTT</h1>
+
+    <div class="card status-card">
+      <h2>&#x1F4CA; Connection Status</h2>
+      <div id="statusContent">Loading...</div>
+    </div>
+
+    <div class="card">
+      <h2>&#x1F4E4; Send Message</h2>
+      <div class="topic-badge" id="topicBadge">Topic: loading...</div>
+      <div class="input-group">
+        <input type="text" id="messageInput" placeholder="Enter your message..." />
+        <button class="btn-primary" id="sendBtn" onclick="sendMessage()">Send</button>
+      </div>
+      <div id="sendAlert" class="alert" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <div class="messages-header">
+        <h2>&#x1F4E9; Messages</h2>
+        <div>
+          <button class="btn-secondary" onclick="loadMessages()">Refresh</button>
+          <button class="btn-secondary" onclick="clearMessages()">Clear</button>
+        </div>
+      </div>
+      <div id="messages">
+        <div class="empty">No messages yet</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isConfigured = false;
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        isConfigured = data.configured;
+
+        document.getElementById('statusContent').innerHTML = `
+          <div class="status-item">
+            <span class="status-label">Status</span>
+            <span class="status-value ${data.configured ? 'status-connected' : 'status-disconnected'}">
+              ${data.configured ? '&#x2705; Configured' : '&#x274C; Not Configured'}
+            </span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Endpoint</span>
+            <span class="status-value">${data.endpoint || 'Not configured'}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Topic</span>
+            <span class="status-value">${data.topic}</span>
+          </div>
+        `;
+
+        document.getElementById('topicBadge').textContent = `Topic: ${data.topic}`;
+        document.getElementById('sendBtn').disabled = !data.configured;
+
+        if (!data.configured) {
+          document.getElementById('sendAlert').innerHTML = '&#x26A0;&#xFE0F; Set AWS_IOT_ENDPOINT, AWS_IOT_CERT, and AWS_IOT_KEY in Netlify environment variables to connect.';
+          document.getElementById('sendAlert').className = 'alert warning';
+          document.getElementById('sendAlert').style.display = 'block';
+        } else {
+          const alertEl = document.getElementById('sendAlert');
+          if (alertEl.classList.contains('warning')) alertEl.style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Failed to load status');
+      }
+    }
+
+    async function sendMessage() {
+      if (!isConfigured) return;
+
+      const input = document.getElementById('messageInput');
+      const alert = document.getElementById('sendAlert');
+      const message = input.value.trim();
+
+      if (!message) return;
+
+      document.getElementById('sendBtn').disabled = true;
+
+      try {
+        const res = await fetch('/api/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          alert.textContent = '&#x2705; Message sent!';
+          alert.className = 'alert success';
+          input.value = '';
+          setTimeout(() => loadMessages(), 500);
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (err) {
+        alert.textContent = `&#x274C; ${err.message || 'Failed to send'}`;
+        alert.className = 'alert error';
+      }
+
+      document.getElementById('sendBtn').disabled = !isConfigured;
+      alert.style.display = 'block';
+      setTimeout(() => {
+        if (!alert.classList.contains('warning')) alert.style.display = 'none';
+      }, 4000);
+    }
+
+    async function loadMessages() {
+      try {
+        const res = await fetch('/api/messages');
+        const data = await res.json();
+        const container = document.getElementById('messages');
+
+        if (data.messages.length === 0) {
+          container.innerHTML = '<div class="empty">No messages yet</div>';
+          return;
+        }
+
+        container.innerHTML = data.messages.map(m => `
+          <div class="message ${m.direction}">
+            <div class="message-header">
+              <span class="message-direction">${m.direction === 'sent' ? '&#x2191; Sent' : '&#x2193; Received'}</span>
+            </div>
+            <div class="message-text">${escapeHtml(m.message)}</div>
+            <div class="message-time">${new Date(m.timestamp).toLocaleString()}</div>
+          </div>
+        `).join('');
+      } catch { console.error('Failed to load messages'); }
+    }
+
+    async function clearMessages() {
+      await fetch('/api/messages', { method: 'DELETE' });
+      loadMessages();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    document.getElementById('messageInput').addEventListener('keypress', e => {
+      if (e.key === 'Enter' && isConfigured) sendMessage();
+    });
+
+    loadStatus();
+    loadMessages();
+    setInterval(loadStatus, 5000);
+    setInterval(loadMessages, 3000);
+  </script>
+</body>
+
+</html>
