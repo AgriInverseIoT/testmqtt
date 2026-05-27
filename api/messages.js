@@ -12,32 +12,39 @@ const messages = pgTable("messages", {
 });
 
 export default async function handler(req, res) {
-  const sql = neon(process.env.DATABASE_URL);
-  const db = drizzle(sql);
+  try {
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({ error: "DATABASE_URL not set" });
+    }
+    const sql = neon(process.env.DATABASE_URL);
+    const db = drizzle(sql);
 
-  if (req.method === "GET") {
-    const rows = await db
-      .select()
-      .from(messages)
-      .orderBy(desc(messages.receivedAt))
-      .limit(100);
+    if (req.method === "GET") {
+      const rows = await db
+        .select()
+        .from(messages)
+        .orderBy(desc(messages.receivedAt))
+        .limit(100);
 
-    return res.json({
-      topic: process.env.AWS_IOT_TOPIC || "fert/cmd",
-      count: rows.length,
-      messages: rows.map((m) => ({
-        message: m.message,
-        topic: m.topic,
-        direction: m.direction,
-        timestamp: m.receivedAt,
-      })),
-    });
+      return res.json({
+        topic: process.env.AWS_IOT_TOPIC || "fert/cmd",
+        count: rows.length,
+        messages: rows.map((m) => ({
+          message: m.message,
+          topic: m.topic,
+          direction: m.direction,
+          timestamp: m.receivedAt,
+        })),
+      });
+    }
+
+    if (req.method === "DELETE") {
+      await db.delete(messages);
+      return res.json({ success: true, message: "Messages cleared" });
+    }
+
+    return res.status(405).send("Method not allowed");
+  } catch (err) {
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
-
-  if (req.method === "DELETE") {
-    await db.delete(messages);
-    return res.json({ success: true, message: "Messages cleared" });
-  }
-
-  return res.status(405).send("Method not allowed");
 }
