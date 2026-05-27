@@ -2,7 +2,6 @@
   "name": "mqtt-express-test",
   "version": "1.0.0",
   "description": "MQTT IoT test setup on Vercel",
-  "type": "module",
   "scripts": {
     "build": "echo 'Static site with Vercel Functions - no build step required'"
   },
