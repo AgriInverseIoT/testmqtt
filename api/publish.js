@@ -10,9 +10,9 @@ function getMqttOptions() {
   const caB64 = process.env.AWS_IOT_CA;
   return {
     endpoint,
-    cert: Buffer.from(certB64, "base64"),
-    key: Buffer.from(keyB64, "base64"),
-    ca: caB64 ? Buffer.from(caB64, "base64") : undefined,
+    cert: Buffer.from(certB64),
+    key: Buffer.from(keyB64),
+    ca: caB64 ? Buffer.from(caB64) : undefined,
     clientId: `${process.env.AWS_IOT_CLIENT_ID || "vercel"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     topic: process.env.AWS_IOT_TOPIC || "fert/cmd",
   };
@@ -57,7 +57,6 @@ async function publishToMqtt(opts, message) {
 export default async function handler(req, res) {
   try {
     const body = req.body;
-
     if (!body || !body.message) {
       return res.status(400).json({ error: "Message is required" });
     }
