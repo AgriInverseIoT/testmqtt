@@ -1,15 +1,4 @@
-import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
-import { desc } from "drizzle-orm";
-
-const messages = pgTable("messages", {
-  id: serial().primaryKey(),
-  topic: text().notNull(),
-  message: text().notNull(),
-  direction: text().notNull().default("received"),
-  receivedAt: timestamp("received_at").defaultNow().notNull(),
-});
 
 export default async function handler(req, res) {
   try {
@@ -17,15 +6,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "DATABASE_URL not set" });
     }
     const sql = neon(process.env.DATABASE_URL);
-    const db = drizzle(sql);
 
     if (req.method === "GET") {
-      const rows = await db
-        .select()
-        .from(messages)
-        .orderBy(desc(messages.receivedAt))
-        .limit(100);
-
+      const rows = await sql`
+        SELECT * FROM messages 
+        ORDER BY received_at DESC 
+        LIMIT 100
+      `;
       return res.json({
         topic: process.env.AWS_IOT_TOPIC || "fert/cmd",
         count: rows.length,
@@ -33,18 +20,18 @@ export default async function handler(req, res) {
           message: m.message,
           topic: m.topic,
           direction: m.direction,
-          timestamp: m.receivedAt,
+          timestamp: m.received_at,
         })),
       });
     }
 
     if (req.method === "DELETE") {
-      await db.delete(messages);
+      await sql`DELETE FROM messages`;
       return res.json({ success: true, message: "Messages cleared" });
     }
 
     return res.status(405).send("Method not allowed");
   } catch (err) {
-    return res.status(500).json({ error: err.message, stack: err.stack });
+    return res.status(500).json({ error: err.message });
   }
 }
