@@ -1,18 +1,17 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { connect } from "mqtt";
-import { db } from "../db/index.js";
-import { messages } from "../db/schema.js";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
-interface MqttOptions {
-  endpoint: string;
-  cert: Buffer;
-  key: Buffer;
-  ca?: Buffer;
-  clientId: string;
-  topic: string;
-}
+const messages = pgTable("messages", {
+  id: serial().primaryKey(),
+  topic: text().notNull(),
+  message: text().notNull(),
+  direction: text().notNull().default("received"),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+});
 
-function getMqttOptions(): MqttOptions | null {
+function getMqttOptions() {
   const endpoint = process.env.AWS_IOT_ENDPOINT;
   const certB64 = process.env.AWS_IOT_CERT;
   const keyB64 = process.env.AWS_IOT_KEY;
@@ -29,7 +28,7 @@ function getMqttOptions(): MqttOptions | null {
   };
 }
 
-async function publishToMqtt(opts: MqttOptions, message: string): Promise<void> {
+async function publishToMqtt(opts, message) {
   return new Promise((resolve, reject) => {
     const client = connect(`mqtts://${opts.endpoint}:8883`, {
       clientId: opts.clientId,
@@ -65,13 +64,8 @@ async function publishToMqtt(opts: MqttOptions, message: string): Promise<void> 
   });
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  let body: { message?: string };
-  try {
-    body = req.body;
-  } catch {
-    return res.status(400).json({ error: "Invalid JSON body" });
-  }
+export default async function handler(req, res) {
+  const body = req.body;
 
   if (!body.message) {
     return res.status(400).json({ error: "Message is required" });
@@ -86,6 +80,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     await publishToMqtt(opts, body.message);
+    const sql = neon(process.env.DATABASE_URL);
+    const db = drizzle(sql);
     await db.insert(messages).values({
       topic: opts.topic,
       message: body.message,
@@ -97,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       topic: opts.topic,
       message: body.message,
     });
-  } catch (error: unknown) {
+  } catch (error) {
     const errMsg = error instanceof Error ? error.message : "Failed to publish message";
     return res.status(500).json({ error: errMsg });
   }
