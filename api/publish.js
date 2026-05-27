@@ -1,15 +1,5 @@
 import { connect } from "mqtt";
-import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
-
-const messages = pgTable("messages", {
-  id: serial().primaryKey(),
-  topic: text().notNull(),
-  message: text().notNull(),
-  direction: text().notNull().default("received"),
-  receivedAt: timestamp("received_at").defaultNow().notNull(),
-});
 
 function getMqttOptions() {
   const endpoint = process.env.AWS_IOT_ENDPOINT;
@@ -65,36 +55,36 @@ async function publishToMqtt(opts, message) {
 }
 
 export default async function handler(req, res) {
-  const body = req.body;
-
-  if (!body.message) {
-    return res.status(400).json({ error: "Message is required" });
-  }
-
-  const opts = getMqttOptions();
-  if (!opts) {
-    return res.status(503).json({
-      error: "AWS IoT not configured. Set AWS_IOT_ENDPOINT, AWS_IOT_CERT, and AWS_IOT_KEY in environment variables.",
-    });
-  }
-
   try {
+    const body = req.body;
+
+    if (!body || !body.message) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const opts = getMqttOptions();
+    if (!opts) {
+      return res.status(503).json({
+        error: "AWS IoT not configured. Set AWS_IOT_ENDPOINT, AWS_IOT_CERT, and AWS_IOT_KEY.",
+      });
+    }
+
     await publishToMqtt(opts, body.message);
-    const sql = neon(process.env.DATABASE_URL);
-    const db = drizzle(sql);
-    await db.insert(messages).values({
-      topic: opts.topic,
-      message: body.message,
-      direction: "sent",
-    });
+
+    if (process.env.DATABASE_URL) {
+      const sql = neon(process.env.DATABASE_URL);
+      await sql`
+        INSERT INTO messages (topic, message, direction)
+        VALUES (${opts.topic}, ${body.message}, 'sent')
+      `;
+    }
 
     return res.json({
       success: true,
       topic: opts.topic,
       message: body.message,
     });
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : "Failed to publish message";
-    return res.status(500).json({ error: errMsg });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 }
